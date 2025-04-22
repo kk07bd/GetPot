@@ -4,13 +4,13 @@
 
 Original author: Frank R. Schaeffer
 License: MIT  
-Original source:
+Original source: 
 * https://getpot.sourceforge.net/
 * https://sourceforge.net/projects/getpot/
 * https://sourceforge.net/projects/getpot/files/
 * https://getpot.sourceforge.net/html/
 
-Powerful command line and configuration file parsing for C++, Python, Ruby and Java (others to come). This tool provides many features, such as separate treatment for options, variables, and flags, unrecognized object detection, prefixes and much more.
+Powerful command line and configuration file parsing for C++, Python, Ruby and Java. This tool provides many features, such as separate treatment for options, variables, and flags, unrecognized object detection, prefixes and much more.
 
 * Parsing command line options of any style.
 * Parsing configuration files with variable replacements.
