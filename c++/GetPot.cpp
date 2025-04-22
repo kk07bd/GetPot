@@ -44,6 +44,23 @@
            snprintf(tmp, (int)SIZE, FORMAT_STR, __VA_ARGS__) 
 #endif
 
+/* Define functions compatible with Micrisoft Visual Studio 2022*/
+#if defined(_MSC_VER)
+#   undef GETPOT_STRTOK
+#   undef GETPOT_STRTOK_3_ARGS
+#   undef GETPOT_SNPRINTF
+#   define GETPOT_STRTOK(a, b, c)  strtok_s(a, b, c)
+#   define GETPOT_STRTOK_3_ARGS
+#   define GETPOT_SNPRINTF(BUFFER, SIZEOFBUFFER, SIZETOCPY, FORMAT_STR, ...) \
+           _snprintf_s(BUFFER, (size_t)SIZEOFBUFFER, (size_t)SIZETOCPY, FORMAT_STR, __VA_ARGS__)
+#   define GETPOT_SSCANF(buffer, format, ...) \
+           sscanf_s(buffer, format, __VA_ARGS__)
+#   define GETPOT_STRCPY(dest, size, src)  strcpy_s(dest, size, src)
+#else
+#   define GETPOT_SSCANF(buffer, format, ...)     sscanf(buffer, format, __VA_ARGS__)
+#   define GETPOT_STRCPY(dest, size, src)         strcpy(dest, src)
+#endif
+
 /* In case that a single header is intended, __GETPOT_INLINE is set to 'inline'
  * otherwise, it is set to 'empty', so that normal object code is produced.     */
 #ifndef    __GETPOT_INLINE
@@ -2314,8 +2331,8 @@ GetPot::__constraint_check_PRIMARY(const std::string& Value,
            NOT          = 0x03, 
            NOT_EQ       = EQ | NOT, 
            DEVISABLE_BY = 0x05,
-           VOID     
-    } op = VOID;
+           GETPOT_VOID     // Some Windows headers use #define void VOID -> so I had to introduce a new name for this
+    } op = GETPOT_VOID;
 
     while( isspace(**iterator) ) ++(*iterator);  // skip whitespace
 
@@ -2344,7 +2361,7 @@ GetPot::__constraint_check_PRIMARY(const std::string& Value,
     }
 
     if( (*iterator)[0] == '=' ) {
-        if( op == VOID ) throw std::runtime_error(std::string("Syntax error found in a constraint")
+        if( op == GETPOT_VOID ) throw std::runtime_error(std::string("Syntax error found in a constraint")
                                                   + "string while processing the file \""
                                                   + filename + "\"."); 
         else {
@@ -2352,7 +2369,7 @@ GetPot::__constraint_check_PRIMARY(const std::string& Value,
             ++(*iterator);
         }
     }
-    else if( op == VOID ) throw std::runtime_error(std::string("Syntax error found in a constraint")
+    else if( op == GETPOT_VOID ) throw std::runtime_error(std::string("Syntax error found in a constraint")
                                                    + "string while processing the file \""
                                                    + filename + "\"."); 
 
@@ -2388,7 +2405,7 @@ GetPot::__constraint_check_PRIMARY(const std::string& Value,
     case NOT:          throw std::runtime_error(std::string("Syntax error found in a constraint")
                                    + "string while processing the file \""
                                    + filename + "\"."); 
-    case VOID:          throw std::runtime_error(std::string("Syntax error found in a constraint")
+    case GETPOT_VOID:          throw std::runtime_error(std::string("Syntax error found in a constraint")
                                     + "string while processing the file \""
                                     + filename + "\"."); 
     }
