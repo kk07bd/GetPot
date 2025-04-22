@@ -1,0 +1,4 @@
+../direct_follow -Uss
+ss: 	ID=3.140000 	V=10
+Charly: 	ID=9.810000 	V=11
+Friedrich: 	ID=1.160000 	V=12

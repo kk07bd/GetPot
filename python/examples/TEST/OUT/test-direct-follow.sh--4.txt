@@ -1,0 +1,4 @@
+../direct_follow -Ududu -Uim -V12 -URadio -V13
+dudu: 	ID=12.000000 	V=10
+im: 	ID=13.000000 	V=11
+Radio: 	ID=1.160000 	V=12

@@ -1,0 +1,39 @@
+GetPot - Java:
+--------------
+
+This is the Java port of the popular GetPot library for 
+command line and input file parsing. Currently only
+a C++ documentation is available. The files in the 
+'examples' directory should be enough, though, to be 
+able to use this library. It is fairly easy to use.
+
+Further information is available at:
+
+             http://getpot.sourceforge.net
+
+Installation:
+-------------
+
+In order to install GetPot, simply copy the file 'GetPot.java'
+or 'GetPot.class' (after you compiled it) somewhere where
+your java compiler can find it.
+
+The 'file emacs-getpot-mode.el' contains some lines of
+emacs-lisp code. If you append these lines to your .emacs
+file, it will highlight your 'getpot' - input files.
+
+Bug reports, Feature requests:
+------------------------------
+
+Please, notify me in case there are any bugs or you think
+that there should be more features in the library.
+My email address is:
+
+fschaef@users.sourceforge.net
+
+Thanks for using this software, enjoy.
+
+
+August 2001, 
+Frank R. Schaefer
+

@@ -1,0 +1,12 @@
+../direct_follow --help
+
+Example to use direct_follow()-functions:
+USAGE:
+--help, -h  get some help about this program.
+
+-Ustring    specify user name as string
+-Vx         specify a value given as x
+-NUMx       specify number given as x
+
+a total amount of three of each is expected.
+

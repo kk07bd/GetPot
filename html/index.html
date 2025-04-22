@@ -1,0 +1,1418 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>GetPot Version 2.0 &#8212; GetPot 2.0 documentation</title>
+    
+    <link rel="stylesheet" href="_static/pyramid.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '2.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<!--[if lte IE 6]>
+<link rel="stylesheet" href="_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
+<![endif]-->
+
+  </head>
+  <body role="document">
+
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="#">GetPot 2.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="getpot-version-2-0">
+<h1>GetPot Version 2.0<a class="headerlink" href="#getpot-version-2-0" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="input-file-and-command-line-parser">
+<h2>Input File and Command Line Parser<a class="headerlink" href="#input-file-and-command-line-parser" title="Permalink to this headline">¶</a></h2>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Author:</th><td class="field-body">Frank R. Schaefer</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Email:</th><td class="field-body"><a class="reference external" href="mailto:fschaef&#37;&#52;&#48;users&#46;sourceforge&#46;net">fschaef<span>&#64;</span>users<span>&#46;</span>sourceforge<span>&#46;</span>net</a></td>
+</tr>
+</tbody>
+</table>
+<div class="section" id="abstract">
+<h3>Abstract<a class="headerlink" href="#abstract" title="Permalink to this headline">¶</a></h3>
+<p>The two basic methods to pass parameters to the <code class="docutils literal"><span class="pre">main()</span></code>-routine are: input
+files and command line arguments. For small scale programs these input methods
+allow to change parameters without having to recompile or having to create an
+input file parser. Even for large programs input files and command line
+arguments are a comfortable way to replace annoying graphical user interfaces.
+When debugging complicated code, it is essential to be able to isolate code
+fragments into a lonely <code class="docutils literal"><span class="pre">main()</span></code>-routine. In order to feed these isolated
+code fragments with realistic data, sophisticated command line and input file
+parsing becomes indispensable.</p>
+<p>GetPot allows to parse input files and the command line in a very efficient
+manner. GetPot itself is a small piece of code, completely contained in a
+header file. This way the installation is very easy and platform independent.
+The present article discusses the C++ implementation of GetPot. However, GetPot
+has been ported to Python, Java and a Ruby. Also, the code has been organized
+in a way that facilitates porting GetPot to other languages.</p>
+<p>Traditionally, programmers relied on the getopt library <a class="reference internal" href="#looijaard97getopt" id="id1">[looijaard97getopt]</a> to
+handle basic command line interpretation.  In recognition of the existing
+getopt library it is brand with an anagram: GetPot. The software as well as
+this document is distributed under MIT License terms <a class="footnote-reference" href="#id8" id="id2">[1]</a> .</p>
+</div>
+<div class="section" id="introduction">
+<h3>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h3>
+<p>In order to implement a tamperproof command line parsing, one usually has to
+write a significant amount of code. Using GetPot allows to shrink code
+fragments such as:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+   <span class="kt">int</span>     <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+   <span class="kt">double</span>  <span class="n">v</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+   <span class="kt">char</span><span class="o">*</span>   <span class="n">endptr</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">...</span>
+   <span class="k">if</span><span class="p">(</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">argc</span> <span class="p">)</span> <span class="p">{</span>
+       <span class="n">v</span> <span class="o">=</span> <span class="n">strtod</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">endptr</span><span class="p">);</span>
+       <span class="k">if</span><span class="p">(</span> <span class="n">endptr</span> <span class="o">==</span> <span class="n">argv</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">)</span> <span class="c1">// argv[i] was not a number</span>
+          <span class="n">v</span> <span class="o">=</span> <span class="mf">9.81</span><span class="p">;</span>            <span class="c1">// set default value</span>
+   <span class="p">}</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>to a single line:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">const</span> <span class="kt">double</span> <span class="n">V</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="mf">9.81</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>In fact, GetPot allows you to do much more sophisticated things in not more
+than one single program line. Additionally, GetPot provides a parser to handle
+input files such as <code class="docutils literal"><span class="pre">example.pot</span></code></p>
+<div class="highlight-ini"><div class="highlight"><pre><span></span><span class="na">webpage</span>  <span class="o">=</span> <span class="s">http://getpot.sourceforge.net/GetPot.html</span>
+<span class="na">user</span>     <span class="o">=</span> <span class="s">&#39;G. V. V. Bouche&#39;     # whitespace requires quotes</span>
+<span class="na">clicks</span>   <span class="o">=</span> <span class="s">231   # [1/s]</span>
+<span class="na">factor_x</span> <span class="o">=</span> <span class="s">1.231 # [m/s^2]</span>
+
+<span class="k">[vehicle]</span>
+<span class="na">wheel-base</span>  <span class="o">=</span> <span class="s">2.65             # [m]</span>
+<span class="na">initial-xyz</span> <span class="o">=</span> <span class="s">&#39;100.  0.1  5.0&#39; # [m]</span>
+</pre></div>
+</div>
+<p>and read out its contents in the same way the command line was parsed. There
+are a few special things to know. In some aspects parsing input files differs
+from parsing the command line.</p>
+</div>
+<div class="section" id="installation">
+<h3>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h3>
+<p>GetPot is a project hosted at Sourceforge. There is a web page that provides
+download-able GetPot libraries for different programming languages:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">http</span><span class="p">:</span><span class="o">//</span><span class="n">getpot</span><span class="o">.</span><span class="n">sourceforge</span><span class="o">.</span><span class="n">net</span><span class="o">/</span>
+</pre></div>
+</div>
+<p>To install GetPot, simply copy the file GetPot somewhere into the file system
+where your compiler can find it (<code class="docutils literal"><span class="pre">/usr/include</span></code> or so <a class="footnote-reference" href="#id9" id="id3">[2]</a>). As a requirement you
+should have installed the STL-Library which usually comes with any C++ compiler
+distribution.</p>
+<p>The easiest way to get started is to go through the example files and
+copy/paste the things you need into your own program. This way you learn GetPot
+in less than 10 minutes. The following text is mainly written, because every
+library should have a manual. It basically describes what you would understand
+anyway when you go through the examples.</p>
+</div>
+<div class="section" id="overview">
+<h3>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h3>
+<p>When an experienced programmer starts to write the <code class="docutils literal"><span class="pre">main()</span></code>-routine in C or
+C++ he produces by reflex a certain code fragment.  Programmers who tasted
+GetOpt write by reflex an extended version such as the following:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cpf">&lt;iostream&gt;</span><span class="cp"></span>
+<span class="cp">#include</span><span class="cpf">&lt;GetPot&gt;</span><span class="cp"></span>
+<span class="p">...</span>
+<span class="kt">int</span> <span class="n">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span><span class="o">**</span> <span class="n">argv</span><span class="p">)</span>
+<span class="p">{</span>
+   <span class="n">GetPot</span>   <span class="n">cl</span><span class="p">(</span><span class="n">argc</span><span class="p">,</span> <span class="n">argv</span><span class="p">);</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>The first object created in the application is of type <code class="docutils literal"><span class="pre">GetPot</span></code>. It uses
+<code class="docutils literal"><span class="pre">argc</span></code> and <code class="docutils literal"><span class="pre">argv</span></code> to build its internal database of command line arguments.
+This is all that is required to start doing fancy things. If one wants to parse
+an input file, one has to specify the filename to the constructor, i.e.</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span>   <span class="n">GetPot</span>   <span class="nf">ifl</span><span class="p">(</span><span class="s">&quot;sprites.pot&quot;</span><span class="p">);</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>defines the file &#8216;sprites.pot&#8217; to be the input file for GetPot&#8217;s internal
+database. All functions explained in the following text work independently of
+the way the database was constructed. They can be applied to any object of type
+<code class="docutils literal"><span class="pre">GetPot</span></code>, whether it was build from a command line or an input file. Input
+files, however, provide some special features described in section
+<a class="reference internal" href="#sec-input-files"><span class="std std-ref">Input files</span></a>.  Distributions of GetPot versions 1.0 and above contain
+a getpot-mode for emacs to highlight GetPot input files.</p>
+<p>There are four different types of command line arguments that are known to GetPot:</p>
+<dl class="docutils">
+<dt>Options:</dt>
+<dd>Arguments like <code class="docutils literal"><span class="pre">--help</span></code>, <code class="docutils literal"><span class="pre">-h</span></code>, and <code class="docutils literal"><span class="pre">--force</span></code> can be easily checked
+for existence. Further, an elegant means is provided to parse arguments
+that follow specific arguments.</dd>
+<dt>Variables:</dt>
+<dd>Variables can be defined on the command line and read out as numbers,
+strings or mixed type vectors.</dd>
+<dt>Flags:</dt>
+<dd>GetPot checks if an argument, or any option (argument starting with a
+single &#8216;-&#8216;) contains a specific letter.</dd>
+<dt>Nominus Arguments:</dt>
+<dd>GetPot lets you iterate through arguments that do not start with a
+minus-sign.</dd>
+</dl>
+<p>The very basic idea of the GetPot is to specify the expected return type
+through a default argument <a class="footnote-reference" href="#id10" id="id4">[3]</a>. There are three basic types known to GetPot:
+<code class="docutils literal"><span class="pre">int</span></code>, <code class="docutils literal"><span class="pre">double</span></code>, and <code class="docutils literal"><span class="pre">std::string</span></code>. A set of functions of the same name
+with an overloaded version for each type is called a function group.</p>
+</div>
+</div>
+<div class="section" id="other-constructors">
+<h2>Other Constructors<a class="headerlink" href="#other-constructors" title="Permalink to this headline">¶</a></h2>
+<p>As mentioned in the previous paragraphs, the command line or configuration
+files are parsed by a call to the constructor of GetPot. There are the two
+obvious constructors:</p>
+<dl class="function">
+<dt id="GetPot">
+<code class="descname">GetPot</code><span class="sig-paren">(</span><em>arg</em>, <em>argv</em><span class="sig-paren">)</span><a class="headerlink" href="#GetPot" title="Permalink to this definition">¶</a></dt>
+<dd><p>initiates the parsing of the command line.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descname">GetPot</code><span class="sig-paren">(</span><em>Filename</em><span class="sig-paren">)</span></dt>
+<dd><p>initiates the parsing of a configuration file.</p>
+</dd></dl>
+
+<p>To provide the user with more flexibility, <code class="docutils literal"><span class="pre">GetPot</span></code> provides two more
+constructors. They determine the way strings are split up into vectors and what
+strings determine the start and the end of a comment:</p>
+<dl class="function">
+<dt>
+<code class="descname">GetPot</code><span class="sig-paren">(</span><em>arg</em>, <em>argv</em>, <em>FieldSeparator=&quot;</em>, <em>&quot;</em><span class="sig-paren">)</span></dt>
+<dd><p>initiates the parsing of the command line. Arguments are split into vectors
+using <code class="docutils literal"><span class="pre">FieldSeparator</span></code> (see section <a class="reference internal" href="#sec-variables"><span class="std std-ref">Variables</span></a>). The default
+value is &#8216;,&#8217;.</p>
+</dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descname">GetPot</code><span class="sig-paren">(</span><em>Filename</em>, <em>CommentStart=&quot;#&quot;</em>, <em>CommentEnd=&quot;n&quot;</em>, <em>FieldSeparator=&quot;</em>, <em>&quot;</em><span class="sig-paren">)</span></dt>
+<dd><p>initiates the parsing of a configuration file. Anything inside
+<code class="docutils literal"><span class="pre">CommentStart</span></code> and <code class="docutils literal"><span class="pre">CommentEnd</span></code> is considered to be a comment.
+Arguments are split into vectors using <code class="docutils literal"><span class="pre">FieldSeparator</span></code>.</p>
+</dd></dl>
+
+<div class="section" id="options">
+<h3>Options<a class="headerlink" href="#options" title="Permalink to this headline">¶</a></h3>
+<p>The easiest way to check if an argument is specified on the command line is to
+use the <code class="docutils literal"><span class="pre">search()</span></code>-function. It returns true in case the option is found and
+false in case it was not. In addition to that, GetPot provides a <code class="docutils literal"><span class="pre">search()</span></code>
+function with a variable argument list allowing to check elegantly for multiple
+options that are equivalent. Example:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">...</span>
+     <span class="nb">bool</span>  <span class="n">be_nice_f</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;--nice&quot;</span><span class="p">);</span>
+     <span class="k">if</span><span class="p">(</span> <span class="n">cl</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;--do-nothing&quot;</span><span class="p">)</span> <span class="p">)</span> <span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+     <span class="k">if</span><span class="p">(</span> <span class="n">cl</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;--help&quot;</span><span class="p">,</span> <span class="s2">&quot;-h&quot;</span><span class="p">,</span> <span class="s2">&quot;--hilfe&quot;</span><span class="p">,</span> <span class="s2">&quot;--sos&quot;</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+        <span class="o">//</span> <span class="nb">print</span> <span class="n">some</span> <span class="n">information</span> <span class="n">about</span> <span class="n">how</span> <span class="n">the</span> <span class="n">program</span> <span class="n">works</span>
+     <span class="p">}</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p>The &#8216;4&#8217; as a first argument to <code class="docutils literal"><span class="pre">search()</span></code> indicates that four strings follow
+that represent equivalent options. <code class="docutils literal"><span class="pre">search()</span></code> functions belong to a class of
+cursor related functions. Cursor related functions are a very convenient means
+to parse the command line. In order to understand how they work, one has to
+understand how command line arguments are lined up. A command line given as:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">hello</span> <span class="n">aux</span> <span class="o">-</span><span class="n">recompile</span> <span class="o">...</span> <span class="n">myinput</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+<p>is stored in an array as shown in the <a class="reference internal" href="#fig-argv"><span class="std std-ref">Command line arguments lined up in the argv-array. A cursor iterates
+over the elements.</span></a>. The <code class="docutils literal"><span class="pre">search()</span></code>
+functions set the cursor to a certain position in the array. Others increase
+the cursor position. The two member functions:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="kt">void</span>   <span class="nf">disable_loop</span><span class="p">();</span>
+<span class="kt">void</span>   <span class="nf">enable_loop</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>allow to specify if the cursor is allowed to go back to the beginning, if no
+match is found until the end of the array. The default behavior is &#8216;yes&#8217;. In
+case one needs to allow multiple occurrence of an option (e.g. as <code class="docutils literal"><span class="pre">-I</span></code> in
+gcc), the wrapping has to be turned off to avoid parsing the same option twice.
+Before parsing these kinds of options, one has to reset the cursor position by
+the function:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="kt">void</span> <span class="nf">resetcursor</span><span class="p">();</span>
+</pre></div>
+</div>
+<div class="figure" id="id14">
+<span id="fig-argv"></span><img alt="_images/argv-array.pdf" src="_images/argv-array.pdf" />
+<p class="caption"><span class="caption-text">Command line arguments lined up in the <code class="docutils literal"><span class="pre">argv</span></code>-array. A cursor iterates
+over the elements.</span></p>
+</div>
+</div>
+</div>
+<div class="section" id="arguments-that-follow-arguments">
+<h2>Arguments that follow arguments<a class="headerlink" href="#arguments-that-follow-arguments" title="Permalink to this headline">¶</a></h2>
+<p>When an argument is found by <code class="docutils literal"><span class="pre">search()</span></code>, the cursor is set to its position.
+Now, the <code class="docutils literal"><span class="pre">next()</span></code> functions allow to parse through terms that follow. A line
+like:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">myprog</span> <span class="o">-</span><span class="n">size</span> <span class="mf">14.2341</span> <span class="o">-</span><span class="n">i</span> <span class="n">fichier</span><span class="o">.</span><span class="n">txt</span>
+</pre></div>
+</div>
+<p>can be parsed using <code class="docutils literal"><span class="pre">search()</span></code> and <code class="docutils literal"><span class="pre">next()</span></code> as follows:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+     <span class="k">if</span><span class="p">(</span> <span class="o">!</span> <span class="n">cl</span><span class="p">.</span><span class="n">search</span><span class="p">(</span><span class="s">&quot;--size&quot;</span><span class="p">)</span> <span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+     <span class="k">const</span> <span class="kt">double</span> <span class="n">XSize</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="mf">0.</span><span class="p">);</span>
+
+     <span class="k">if</span><span class="p">(</span> <span class="o">!</span> <span class="n">cl</span><span class="p">.</span><span class="n">search</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s">&quot;-i&quot;</span><span class="p">,</span> <span class="s">&quot;--file&quot;</span><span class="p">)</span> <span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+     <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">infile</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">next</span><span class="p">(</span><span class="s">&quot;dummy.txt&quot;</span><span class="p">);</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>Note that the desired return type is specified by the default argument. XSize
+is of type double so the default argument for <code class="docutils literal"><span class="pre">next()</span></code> is of type double. If
+the argument following &#8216;-size&#8217; cannot be converted to a double, then the
+default value &#8216;0.&#8217; will be assigned to XSize. Respectively the same thing
+happens with infile where &#8216;dummy.txt&#8217; specifies that a std::string parameter is
+required.</p>
+<p>The above code may still seem a bit cumbersome. That is why GetPot provides the
+<code class="docutils literal"><span class="pre">follow()</span></code> functions. These functions combine the search for an argument with
+the search for a following argument. The above code can be rewritten as:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+    <span class="k">const</span> <span class="kt">double</span>       <span class="n">XSize</span>  <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">follow</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span> <span class="s">&quot;--xsize&quot;</span><span class="p">);</span>
+    <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span>  <span class="n">infile</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">follow</span><span class="p">(</span><span class="s">&quot;dummy.txt&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s">&quot;-i&quot;</span><span class="p">,</span><span class="s">&quot;--file&quot;</span><span class="p">);</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">search()</span></code> and <code class="docutils literal"><span class="pre">follow()</span></code> functions set the cursor to the next argument that matches, starting from the current cursor position.  These functions can also be used to parse arguments that occur multiple times. The following code shows how multiple occurrence of an argument can be parsed.</p>
+<p>Since every time when one needs to parse options with multiple occurrence, one
+needs to call <code class="docutils literal"><span class="pre">disable_loop()</span></code> and <code class="docutils literal"><span class="pre">reset_cursor()</span></code>, these two functions
+are combined into one, for convenience:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="kt">void</span> <span class="nf">initmultipleoccurrence</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>The above code parses command lines like:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">myprog</span> <span class="p">...</span> <span class="o">-</span><span class="n">a</span> <span class="mf">3.1</span> <span class="p">...</span> <span class="o">-</span><span class="n">a</span> <span class="o">-</span><span class="mf">8.2</span> <span class="p">...</span> <span class="o">-</span><span class="n">a</span> <span class="mf">0.2</span> <span class="p">...</span> <span class="o">-</span><span class="n">a</span> <span class="mf">1.02</span> <span class="p">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nominus-followers">
+<h2>Nominus Followers<a class="headerlink" href="#nominus-followers" title="Permalink to this headline">¶</a></h2>
+<p>Two functions support the listing of files or similar command line arguments that start not with a minus, but follow an option:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">const</span> <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span>  <span class="n">nominus_followers</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">Option</span><span class="p">);</span>
+<span class="k">const</span> <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span>  <span class="n">nominus_followers</span><span class="p">(</span><span class="k">const</span> <span class="kt">unsigned</span> <span class="n">No</span><span class="p">,</span> <span class="p">...);</span>
+</pre></div>
+</div>
+<p>Both functions return a list of strings that follow an option. The second function allows the specification of multiple options, the number of passed options has to be passed as the first argument.  The following code fragment:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">const</span> <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">inputs</span>  <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">nominus_followers</span><span class="p">(</span><span class="s">&quot;-i&quot;</span><span class="p">);</span>
+<span class="k">const</span> <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span> <span class="n">outputs</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">nominus_followers</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="s">&quot;-o&quot;</span><span class="p">,</span> <span class="s">&quot;--output&quot;</span><span class="p">,</span>
+                                                    <span class="s">&quot;--ausgabe&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>when fed with the following command line:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">application</span> <span class="o">-</span><span class="n">i</span> <span class="n">main</span><span class="p">.</span><span class="n">cpp</span> <span class="n">example</span><span class="p">.</span><span class="n">cpp</span> <span class="n">audio</span><span class="p">.</span><span class="n">cpp</span> <span class="o">-</span><span class="n">o</span> <span class="n">video</span><span class="p">.</span><span class="n">out</span> <span class="o">--</span><span class="n">output</span>
+  <span class="n">libAudio</span><span class="p">.</span><span class="n">so</span> <span class="n">libKeyBoard</span><span class="p">.</span><span class="n">so</span> <span class="n">libVehicle</span><span class="p">.</span><span class="n">so</span> <span class="o">--</span><span class="n">ausgabe</span> <span class="n">Compressed</span> <span class="n">RGB</span>
+</pre></div>
+</div>
+<p>will produce two vectors inputs and outputs where the first contains the
+strings &#8216;main.cpp&#8217;. &#8216;example.cpp&#8217;, and &#8216;audio.cpp&#8217;, The second vector will
+contain &#8216;video.out&#8217;, &#8216;libAudio.so&#8217;, &#8216;libKeyBoard.so&#8217;, &#8216;libVehicle.so&#8217;,
+&#8216;Compressed&#8217;, and &#8216;RGB&#8217;.</p>
+</div>
+<div class="section" id="directly-followed-options">
+<h2>Directly followed options<a class="headerlink" href="#directly-followed-options" title="Permalink to this headline">¶</a></h2>
+<p>In the previous section, it is discussed how GetPot handles arguments that
+follow other arguments on the command line. Popular programs, such as &#8216;gcc&#8217;
+parse information that directly follows a string without any whitespace, such
+as &#8216;-I/usr/local/include/GL&#8217;.  In this case &#8216;-I&#8217; indicates that a include path
+is to be set and the following character chain represents the path to be used.
+Of course, GetPot provides an easy means to access these strings: the
+<code class="docutils literal"><span class="pre">direct_follow()</span></code>-functions. This is described in the present section.
+However, take a look at the <code class="docutils literal"><span class="pre">tail()</span></code>- functions, section <a class="reference internal" href="#sec-tails"><span class="std std-ref">Tails</span></a>.
+They are even easier and solve most probably all your demans. For now, here is
+an example for using the direct follow functions:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+   <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span>     <span class="n">incl_path</span><span class="p">;</span>
+   <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span>  <span class="n">path</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">direct_follow</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span> <span class="s">&quot;-I&quot;</span><span class="p">);</span>
+   <span class="c1">// read all arguments that start with &#39;-I&#39;</span>
+   <span class="n">cl</span><span class="p">.</span><span class="n">init_multiple_occurrence</span><span class="p">();</span>
+   <span class="k">while</span><span class="p">(</span><span class="n">path</span> <span class="o">!=</span> <span class="s">&quot;&quot;</span> <span class="p">)</span> <span class="p">{</span>
+   <span class="n">incl_path</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">string</span><span class="p">(</span><span class="n">path</span><span class="p">));</span>
+   <span class="n">path</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">direct_follow</span><span class="p">(</span><span class="s">&quot;&quot;</span><span class="p">,</span> <span class="s">&quot;-I&quot;</span><span class="p">);</span>
+   <span class="p">}</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="tails">
+<span id="sec-tails"></span><h2>Tails<a class="headerlink" href="#tails" title="Permalink to this headline">¶</a></h2>
+<p>Options that are appended to a starting string such as &#8216;-I&#8217; or &#8216;-L&#8217; in a C
+compiler, can be read very easily using the tails functions, of which there are
+three:</p>
+<blockquote>
+<div><dl class="function">
+<dt id="string_tails">
+<code class="descname">string_tails</code><span class="sig-paren">(</span><em>StartString</em><span class="sig-paren">)</span><a class="headerlink" href="#string_tails" title="Permalink to this definition">¶</a></dt>
+<dd><p>returning a vector of strings that are appended to
+any option starting with <code class="docutils literal"><span class="pre">StartString</span></code>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="int_tails">
+<code class="descname">int_tails</code><span class="sig-paren">(</span><em>StartString</em>, <em>Default = 1</em><span class="sig-paren">)</span><a class="headerlink" href="#int_tails" title="Permalink to this definition">¶</a></dt>
+<dd><p>returning a vector of integers that are appended to
+any option starting with <code class="docutils literal"><span class="pre">StartString</span></code>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="double_tails">
+<code class="descname">double_tails</code><span class="sig-paren">(</span><em>StartString</em>, <em>Default=-1.0</em><span class="sig-paren">)</span><a class="headerlink" href="#double_tails" title="Permalink to this definition">¶</a></dt>
+<dd><p>returning a vector of double precision float numbers that
+are appended to any option starting with <code class="docutils literal"><span class="pre">StartString</span></code>.</p>
+</dd></dl>
+
+</div></blockquote>
+<p>The latter two functions require a conversion of a string to a number. This can
+potentially fail. So, you can provide a default value by which you determine
+that an error occured. If a value in the returned list is equal to that default
+value, you assume that the user was not able to specify a decent number. By
+default, the default value is minus one.</p>
+<div class="section" id="variables">
+<span id="sec-variables"></span><h3>Variables<a class="headerlink" href="#variables" title="Permalink to this headline">¶</a></h3>
+<p>Variables are a very elegant feature to pass arguments to your program. In the style of &#8216;awk&#8217; one can specify some variables, assign values to them, and read them from inside your program. A &#8216;variable&#8217; is defined on the command line like:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="n">variable</span><span class="o">-</span><span class="n">name</span> <span class="sc">&#39;=&#39;</span> <span class="n">value</span><span class="p">.</span>
+</pre></div>
+</div>
+<p>Note that no blanks are allowed. Quotes can be used, though, to pass longer
+strings or vectors. Variables are accessed through the function call operator.
+In the same way as the <code class="docutils literal"><span class="pre">next()</span></code> and <code class="docutils literal"><span class="pre">follow()</span></code> function groups, the
+function call operator determines its return type through the default argument.
+By a code fragment like:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+   <span class="k">const</span> <span class="kt">double</span>        <span class="n">initial_velocity</span>   <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;v0&quot;</span><span class="p">,</span> <span class="mf">10.</span><span class="p">);</span>              <span class="c1">// [m/s]</span>
+   <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span>   <span class="n">integration_type</span>   <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;integration&quot;</span><span class="p">,</span> <span class="s">&quot;euler&quot;</span><span class="p">);</span>
+   <span class="k">const</span> <span class="kt">int</span>           <span class="n">no_samples_per_sec</span> <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;samples&quot;</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span>       <span class="c1">// [1/s]</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>one can parse a command line like:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">myprog</span> <span class="p">...</span> <span class="n">v0</span><span class="o">=</span><span class="mf">14.56</span> <span class="n">integration</span><span class="o">=</span><span class="n">runge</span><span class="o">-</span><span class="n">kutta</span> <span class="n">samples</span><span class="o">=</span><span class="mi">500</span> <span class="p">...</span>
+</pre></div>
+</div>
+<p>GetPot, can do even more. It is able to treat input vectors, of mixed type.
+This allows to have command line arguments like:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="o">&gt;</span> <span class="n">myprog</span> <span class="o">...</span> <span class="n">sample</span><span class="o">-</span><span class="n">interval</span><span class="o">=</span><span class="s1">&#39;-10. 10. 400&#39;</span> \
+             <span class="n">color</span><span class="o">-</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;32 RGB 0.4 0.2 0.5&#39;</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Vectors variables are also read with the function call operator.  However, the
+position in the vector has to be specified by an index. The total number of
+elements in a vector can be determined through the function
+<code class="docutils literal"><span class="pre">vector_variable_size(VariableName)</span></code>. Here is an example of how to parse the
+above command line:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+   <span class="k">if</span><span class="p">(</span> <span class="n">cl</span><span class="p">.</span><span class="n">vector_variable_size</span><span class="p">(</span><span class="s">&quot;sample-interval&quot;</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="p">)</span> <span class="p">{</span>
+       <span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;error: sample interval, argument does not fit format:</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+       <span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;       MINIMUM MAXIMUM NO_SAMPLES</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">.</span>
+       <span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;       need at least the minimum !</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+   <span class="p">}</span>
+   <span class="k">const</span> <span class="kt">double</span> <span class="n">Min</span> <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;sample-interval&quot;</span><span class="p">,</span>       <span class="mi">0</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>  <span class="c1">// [s] default 0</span>
+   <span class="k">const</span> <span class="kt">double</span> <span class="n">Max</span> <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;sample-interval&quot;</span><span class="p">,</span>       <span class="mi">1</span><span class="p">,</span> <span class="mf">10.</span><span class="p">);</span> <span class="c1">// [s] default 10</span>
+   <span class="k">const</span> <span class="kt">int</span>    <span class="n">NoSamples</span> <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;sample-interval&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">200</span><span class="p">);</span> <span class="c1">// sample no.</span>
+   <span class="p">...</span>
+   <span class="k">const</span> <span class="kt">int</span>          <span class="n">BPP</span>  <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;color-mode&quot;</span><span class="p">,</span> <span class="mi">64</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+   <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span>  <span class="n">Mode</span> <span class="o">=</span> <span class="n">cl</span><span class="p">(</span><span class="s">&quot;color-mode&quot;</span><span class="p">,</span> <span class="s">&quot;Grayscale&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+   <span class="k">if</span><span class="p">(</span> <span class="o">!</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">Mode</span><span class="p">,</span><span class="s">&quot;RGB&quot;</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">BPP</span> <span class="o">&lt;</span> <span class="mi">24</span> <span class="p">)</span>
+   <span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;RGB not possible with less than 24 bits per pixel.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>The second argument to the <code class="docutils literal"><span class="pre">()</span></code>-operator specifies the position in the
+vector, the third argument is the default value. In the example above, the
+first vector element of &#8216;sample-interval&#8217; (index 0) defines the minimum
+<code class="docutils literal"><span class="pre">Min</span></code>. The second argument the maximum (index 1) and the third element (index
+2) the number of samples.  Respectively the &#8216;color-mode&#8217; information is parsed.</p>
+</div>
+<div class="section" id="constraints">
+<h3>Constraints<a class="headerlink" href="#constraints" title="Permalink to this headline">¶</a></h3>
+<p>The last section showed how variables could be parsed using the function call
+operator. Additionally, to the type constraints, the user might specify
+constraints on the value of a variable. GetPot has its own grammar to specify
+value constraint which is concise and in probably in most cases more dense
+than a equivalent C code. Consider for example the constraint:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">(</span><span class="o">!=</span> <span class="mh">0xFF</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">((</span><span class="o">&lt;</span> <span class="mi">12</span> <span class="o">%</span> <span class="mi">3</span><span class="p">)</span> <span class="o">|</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">12</span> <span class="o">%</span> <span class="mi">4</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>which means that thevalue needs to be unequal 0xFF. Also, if it is less than 12
+it needs to be divisable by three and if it is greater than 12, it needs to be
+divisable by 4. For a variable &#8220;x&#8221; this constraint can be specified with
+GetPot like</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">const</span> <span class="kt">int</span>  <span class="n">x</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">&quot;(!= 0xFF) &amp; ((&lt; 12 % 3) | &gt;= (12 % 4))&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>Handwriting the C++ code results in</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">const</span> <span class="kt">int</span>  <span class="n">x</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;x&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">);</span>
+
+<span class="k">if</span>     <span class="p">(</span> <span class="n">x</span> <span class="o">==</span> <span class="mh">0xFF</span> <span class="p">)</span>               <span class="n">x</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="k">else</span> <span class="nf">if</span><span class="p">(</span>  <span class="n">x</span> <span class="o">&lt;</span> <span class="mi">12</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">x</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">)</span> <span class="n">x</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="k">else</span> <span class="nf">if</span><span class="p">(</span> <span class="n">x</span> <span class="o">&gt;=</span> <span class="mi">12</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">x</span> <span class="o">%</span> <span class="mi">4</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">)</span> <span class="n">x</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>which is three lines more than in the above GetPot example.</p>
+<blockquote id="tab-dollar-bracket">
+<div><table border="1" class="docutils">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>Condition Operator</td>
+<td>Meaning</td>
+</tr>
+<tr class="row-even"><td>&gt; X</td>
+<td>Value greater than X</td>
+</tr>
+<tr class="row-odd"><td>&gt;= X</td>
+<td>Value greater or equal X</td>
+</tr>
+<tr class="row-even"><td>== X</td>
+<td>Value equal to X</td>
+</tr>
+<tr class="row-odd"><td>!= X</td>
+<td>Value not equal to X</td>
+</tr>
+<tr class="row-even"><td>&lt;= X</td>
+<td>Value less or equal X</td>
+</tr>
+<tr class="row-odd"><td>&lt; X</td>
+<td>Value less than X</td>
+</tr>
+<tr class="row-even"><td>% X</td>
+<td>Value divisable by X</td>
+</tr>
+<tr class="row-odd"><td>! E</td>
+<td>Expression E is not true</td>
+</tr>
+<tr class="row-even"><td>&#8216;string&#8217;</td>
+<td>Value is equal to string</td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>Note, that &#8216;bool&#8217; variables cannot be subject to constraints. There range
+of &#8216;true&#8217; and &#8216;false&#8217; is so restricted, that any meaningful condition
+could equally written by hand (e.f. &#8216;if x equal false, then exit&#8217;).
+The following operators and delimiters allow to combine multiple expressions:</p>
+<blockquote>
+<div><table border="1" class="docutils">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td>Binary Operator Usage</td>
+<td>Meaning</td>
+</tr>
+<tr class="row-even"><td>E0 | E1</td>
+<td>Expression E0 or E1 is true</td>
+</tr>
+<tr class="row-odd"><td>E0 &amp; E1</td>
+<td>Expression E0 and E1 is true</td>
+</tr>
+<tr class="row-even"><td>E0 operator (E1 operator E2)</td>
+<td>Treat E1 and E2 before E0</td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+<p>The last line stands for &#8216;grouping&#8217; that allows to cirumvent precedence rules,
+e.g.:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">(</span><span class="o">%</span> <span class="mi">3</span> <span class="o">|</span> <span class="o">%</span> <span class="mi">4</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">&gt;</span> <span class="mi">12</span>
+</pre></div>
+</div>
+<p>Checks for &#8216;divisable by three or divisable by four&#8217; before it checks that the
+number is greater than 12. This circumvents the mathematical precedence of
+&#8216;and&#8217; over &#8216;or&#8217;. This circumvents the mathematical precedence of &#8216;and&#8217; before &#8216;or&#8217;.</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">T</span><span class="o">&gt;</span> <span class="n">T</span>  <span class="k">operator</span><span class="p">()(</span><span class="k">const</span> <span class="n">StringOrCharP</span> <span class="n">VarName</span><span class="p">,</span> <span class="n">T</span> <span class="n">Default</span><span class="p">)</span> <span class="k">const</span><span class="p">;</span>
+<span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">T</span><span class="o">&gt;</span> <span class="n">T</span>  <span class="n">get</span><span class="p">(</span><span class="k">const</span> <span class="n">StringOrCharP</span> <span class="n">VarName</span><span class="p">);</span>
+<span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">T</span><span class="o">&gt;</span> <span class="n">T</span>  <span class="n">get</span><span class="p">(</span><span class="k">const</span> <span class="n">StringOrCharP</span> <span class="n">VarName</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">Constraint</span><span class="p">);</span>
+<span class="k">template</span> <span class="o">&lt;</span><span class="k">class</span> <span class="nc">T</span><span class="o">&gt;</span> <span class="n">T</span>  <span class="n">get</span><span class="p">(</span><span class="k">const</span> <span class="n">StringOrCharP</span> <span class="n">VarName</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">Constraint</span><span class="p">,</span>
+                          <span class="n">T</span>                   <span class="n">Default</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="flags">
+<h3>Flags<a class="headerlink" href="#flags" title="Permalink to this headline">¶</a></h3>
+<p>Flags are activated by single letters inside an argument or option <a class="footnote-reference" href="#id11" id="id5">[4]</a>. GetPot
+has two functions to access flags:</p>
+<dl class="function">
+<dt id="options_contain">
+<code class="descname">options_contain</code><span class="sig-paren">(</span><em>const char* Flags</em><span class="sig-paren">)</span><a class="headerlink" href="#options_contain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if any option (argument that does start with a single &#8216;-&#8216;) contains
+one of the flags specified in the string <code class="docutils literal"><span class="pre">Flags</span></code>.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="argument_contains">
+<code class="descname">argument_contains</code><span class="sig-paren">(</span><em>unsigned Idx</em>, <em>const char* Flags</em><span class="sig-paren">)</span><a class="headerlink" href="#argument_contains" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks if argument number <code class="docutils literal"><span class="pre">Idx</span></code> contains one of the flags specified in
+<code class="docutils literal"><span class="pre">Flags</span></code>.</p>
+</dd></dl>
+
+<p>Here is an example:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+   <span class="k">const</span> <span class="kt">bool</span>  <span class="n">verbose_f</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">options_contain</span><span class="p">(</span><span class="s">&quot;vV&quot;</span><span class="p">);</span>
+   <span class="k">const</span> <span class="kt">bool</span>  <span class="n">extract_f</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">argument_contains</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s">&quot;xX&quot;</span><span class="p">);</span>
+   <span class="k">const</span> <span class="kt">bool</span>  <span class="n">create_f</span>  <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">argument_contains</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s">&quot;cC&quot;</span><span class="p">);</span>
+   <span class="k">if</span><span class="p">(</span> <span class="n">create_f</span> <span class="o">&amp;&amp;</span> <span class="n">extract_f</span> <span class="p">)</span>
+      <span class="p">{</span> <span class="n">cerr</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;cannot create and extract at the same time.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">;</span> <span class="n">exit</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">);</span> <span class="p">}</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>At first, it is checked if any option (argument that starts with a minus)
+contains a letter &#8216;v&#8217; or &#8216;V&#8217;. If it does, then the verbose flag will be set.
+The letters &#8216;x&#8217;, &#8216;X&#8217;, &#8216;c&#8217;, and &#8216;C&#8217; in the first argument indicate if one uses
+the program to extract or create a new file. Correspondingly the flags are set.</p>
+</div>
+<div class="section" id="nominus-arguments">
+<h3>Nominus Arguments<a class="headerlink" href="#nominus-arguments" title="Permalink to this headline">¶</a></h3>
+<p>In order to quickly go through the arguments that do not start with a minus,
+the <code class="docutils literal"><span class="pre">next_nominus()</span></code> function is provided. Each call to this function returns
+the following argument that does not have a minus. If there is no further
+argument, this function return &#8216;0&#8217;.  Example:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+   <span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span>     <span class="n">files</span><span class="p">;</span>
+   <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span>  <span class="n">nm</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">next_nominus</span><span class="p">();</span>
+   <span class="k">while</span><span class="p">(</span> <span class="n">nm</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">{</span>
+       <span class="n">file</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">nm</span><span class="p">);</span>
+       <span class="n">nm</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">next_nominus</span><span class="p">();</span>
+   <span class="p">}</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>Here the nominus arguments are read one after the other into an array of
+strings containing some filenames. If this is all one needs, one is better of
+asking directly for a vector of all nominus arguments:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="n">vector</span><span class="o">&lt;</span><span class="n">string</span><span class="o">&gt;</span>   <span class="n">files</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">nominus_vector</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>This line does the same as the slightly more complicated piece of code above.</p>
+</div>
+<div class="section" id="direct-access-to-command-line-arguments">
+<h3>Direct access to command line arguments<a class="headerlink" href="#direct-access-to-command-line-arguments" title="Permalink to this headline">¶</a></h3>
+<p>The very simplest way to access the argument list one is to use the <code class="docutils literal"><span class="pre">[]</span></code>-operator:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">while</span><span class="p">(</span> <span class="n">cl</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="p">)</span> <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">cl</span><span class="p">[</span><span class="mi">5</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="n">endl</span><span class="p">;</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal"><span class="pre">[]</span></code>-operator returns a zero pointer in case that one tried to reference
+an option that does not exists. Similar to that, the <code class="docutils literal"><span class="pre">get()</span></code>-functions allow
+to specify a type through a default argument, so that one writes for example:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="k">const</span> <span class="kt">double</span> <span class="n">Acceleration</span> <span class="o">=</span> <span class="n">cl</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mf">9.81</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>to use argument number five as the value of a certain double variable. The high
+flexibility of GetPot, however, makes these methods seem to be a little
+outdated. Fixing the position of an argument in a argument list, is a
+restriction that makes the use of a program unnecessarily difficult. As seen
+preceeding sections, one can do much better without adding any more programming
+effort.</p>
+</div>
+<div class="section" id="input-files">
+<span id="sec-input-files"></span><h3>Input files<a class="headerlink" href="#input-files" title="Permalink to this headline">¶</a></h3>
+<p>Input files are parsed a little differently from the command line.  Perhaps the
+most important feature are the &#8216;#&#8217;-comments that allow to add text into the
+file without being actually parsed:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="c1"># -*- getpot -*-  activate emacs &#39;getpot-mode&#39;</span>
+<span class="c1"># FILE:    &quot;example.pot&quot;</span>
+<span class="c1"># PURPOSE: some examples how to use GetPot for input file parsing.</span>
+<span class="c1">#</span>
+<span class="c1"># (C) 2001 Frank R. Schaefer</span>
+<span class="c1">#</span>
+<span class="c1"># License Terms: GNU Lesser GPL, ABSOLUTELY NO WARRANTY</span>
+<span class="c1">#####################################################################</span>
+<span class="nv">v0</span> <span class="o">=</span> <span class="m">34</span>.2    <span class="c1"># [m/s^2] initial speed of point mass</span>
+</pre></div>
+</div>
+<p>As can be seen in the same example, the variable assignments now allow
+whitespace between a left hand value <code class="docutils literal"><span class="pre">v0</span></code> the assignment operator &#8216;=&#8217; and a
+right hand value 34.2.</p>
+<p>One thing is crucially different in input files: sections. In input files, the
+basic advantage of sections is to reduce the variable length. Imagine, you have
+a parameter weight occurring multiple times: for the total vehicle, for each
+tire, for a load in the trunk etc. Now in order give each one a unique
+identifier one would have to call them <code class="docutils literal"><span class="pre">total_vehicle_weight</span></code>,
+<code class="docutils literal"><span class="pre">vehicle_tires_front_left_weight</span></code> and so on. Here is where sections become
+handy:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>...
+    <span class="o">[</span>vehicle<span class="o">]</span>
+    <span class="nv">length</span>  <span class="o">=</span> <span class="m">2</span>.65             <span class="c1"># [m]</span>
+    initial-xyz <span class="o">=</span> <span class="s1">&#39;100.  0.1  5.0&#39;</span> <span class="c1"># [m]</span>
+
+    <span class="c1"># coefficients of magic formula [Pajeka, et al.]</span>
+    <span class="o">[</span>vehicle/tires/front<span class="o">]</span>
+      <span class="o">[</span>./right<span class="o">]</span>
+      <span class="nv">B</span> <span class="o">=</span> <span class="m">3</span>.7976    <span class="nv">C</span> <span class="o">=</span> <span class="m">1</span>.2    <span class="nv">E</span> <span class="o">=</span> -0.5    <span class="nv">D</span> <span class="o">=</span> <span class="m">64322</span>.404
+      <span class="o">[</span>../left<span class="o">]</span>
+      <span class="nv">B</span> <span class="o">=</span> <span class="m">3</span>.7976    <span class="nv">C</span> <span class="o">=</span> <span class="m">1</span>.2    <span class="nv">E</span> <span class="o">=</span> -0.5    <span class="nv">D</span> <span class="o">=</span> <span class="m">64322</span>.404
+    <span class="o">[</span>vehicle/tires/rear<span class="o">]</span>
+      <span class="o">[</span>./right<span class="o">]</span>
+      <span class="nv">B</span> <span class="o">=</span> <span class="m">3</span>.546    <span class="nv">C</span> <span class="o">=</span> <span class="m">1</span>.135   <span class="nv">E</span> <span class="o">=</span> -0.4    <span class="nv">D</span> <span class="o">=</span> <span class="m">59322</span>.32
+      <span class="o">[</span>../left<span class="o">]</span>
+      <span class="nv">B</span> <span class="o">=</span> <span class="m">3</span>.546    <span class="nv">C</span> <span class="o">=</span> <span class="m">1</span>.11    <span class="nv">E</span> <span class="o">=</span> -0.32   <span class="nv">D</span> <span class="o">=</span> <span class="m">59322</span>.32
+
+    <span class="o">[</span>vehicle/chassis<span class="o">]</span>  <span class="c1"># i.e. vehicle/chassis</span>
+    <span class="nv">Roh</span> <span class="o">=</span> <span class="m">1</span>.21<span class="p">;</span>   <span class="c1"># [kg/m^3] density of air</span>
+    <span class="nv">S</span>   <span class="o">=</span> <span class="m">5</span>.14<span class="p">;</span>   <span class="c1"># [m^2]    reference surface</span>
+    <span class="nv">Cd</span>  <span class="o">=</span> <span class="m">0</span>.45<span class="p">;</span>   <span class="c1"># [1]      air drag coefficient</span>
+...
+</pre></div>
+</div>
+<p>In section <a class="reference internal" href="#sec-variables"><span class="std std-ref">Variables</span></a> it was explained how to read out variables. The
+same functions work, of course, for a database build up on a parsed file. The
+only difference is that sections produce suffixes in front of variables and
+options. A database fed with a file as the above one, can be queried as
+follows:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/B&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">C</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/C&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">D</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/D&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">E</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/E&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>Note that there are two special indicators in a section label:</p>
+<blockquote>
+<div><p><code class="docutils literal"><span class="pre">./</span></code> Take the actual section and append the following name to it.</p>
+<p><code class="docutils literal"><span class="pre">../</span></code> Go back to the parent section and create a name appended to the name of the parent.</p>
+</div></blockquote>
+<p>Finally, an empty label like <code class="docutils literal"><span class="pre">[]</span></code>, resets the section suffix to nothing. Speaking in name space terminology, we are back to the global name space.</p>
+</div>
+<div class="section" id="prefixes">
+<h3>Prefixes<a class="headerlink" href="#prefixes" title="Permalink to this headline">¶</a></h3>
+<p>When reading out variables, options and flags in a large section tree, it can be very messy if one has to write the full variable name such as:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="s">&quot;vehicle/tires/front/right/B&quot;</span>
+</pre></div>
+</div>
+<p>Here, the prefix feature comes convinient. It allows to narrow the search space for arguments, variables, options and flags. Only such objects are considered that start with the given prefix. The prefix itself is then cut of the object before investigation. In specific this prefix can be a section name, so that a code fragment like:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/B&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">C</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/C&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">D</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/D&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">E</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/E&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>can be rewritten as:</p>
+<div class="highlight-cpp"><div class="highlight"><pre><span></span><span class="p">...</span>
+    <span class="n">ifile</span><span class="p">.</span><span class="n">set_prefix</span><span class="p">(</span><span class="s">&quot;vehicle/tires/front/right/&quot;</span><span class="p">)</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">B</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;B&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">C</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;C&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">D</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;D&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+    <span class="n">front_tire</span><span class="p">.</span><span class="n">E</span> <span class="o">=</span> <span class="n">ifile</span><span class="p">(</span><span class="s">&quot;E&quot;</span><span class="p">,</span> <span class="mf">0.</span><span class="p">);</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p>which is, of course, much more readable. However, one should not forget to set
+or reset the prefix to the correspondent section (such as &#8220;&#8221; for the root
+section).</p>
+</div>
+<div class="section" id="ufos-unidentified-flying-objects">
+<h3>UFOs - Unidentified Flying Objects<a class="headerlink" href="#ufos-unidentified-flying-objects" title="Permalink to this headline">¶</a></h3>
+<p>Some users tend to pass wrong options to a program on the command line, to
+define sections in configuration files that nobody cares about (e.g.
+&#8216;vehicle/front-tire-groop&#8217;) and tiny input errors can prevent a program from
+functioning. In order to allow the program to tell the jittery user that he did
+something that nobody understands, GetPot provides UFO detection !</p>
+<p>Indeed, these unidentified command line arguments that fly around without ever
+being processed, these variables in configuration files that do not serve any
+purpose, command line switches that do not switch anything - these things are
+easily detected and the programmer can decide what he wants to do about it.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">UFO detection is prefix dependent! In case you were using prefixes, you
+must reset the prefix to the section you are investigating <a class="footnote-reference" href="#id12" id="id6">[5]</a>.</p>
+</div>
+<p>The following sections discuss functions where the valid options are explicitly
+passed to the function. However, since version 1.1.5, GetPot traces the access
+to command line arguments. If it is enough evidence that no function ever read
+a command line argument, then you might use simply the following functions:</p>
+<dl class="function">
+<dt id="unidentified_arguments">
+<code class="descname">unidentified_arguments</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#unidentified_arguments" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="unidentified_options">
+<code class="descname">unidentified_options</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#unidentified_options" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="unidentified_variables">
+<code class="descname">unidentified_variables</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#unidentified_variables" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="unidentified_sections">
+<code class="descname">unidentified_sections</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#unidentified_sections" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="unidentified_nominuses">
+<code class="descname">unidentified_nominuses</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#unidentified_nominuses" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Each of them returns a vector of strings, i.e. the arguments, options,
+variables, sections or nominuses that are &#8216;untouched.&#8217;  Call these functions at
+the end of your command line/configuration file treatment.</p>
+</div>
+</div>
+<div class="section" id="unidentified-arguments">
+<h2>Unidentified Arguments<a class="headerlink" href="#unidentified-arguments" title="Permalink to this headline">¶</a></h2>
+<p>In order to detect unidentified flying arguments one can uses the following functions:</p>
+<blockquote>
+<div><dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_arguments(unsigned Number, const char* Known, ...) const;</code></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_arguments(const vector&lt;string&gt;&amp; Knowns) const;</code></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>In the first case, <code class="docutils literal"><span class="pre">Number</span></code> specifies the number of known arguments and the
+following list of <code class="docutils literal"><span class="pre">const</span> <span class="pre">char*</span></code>-pointers specify the list of known arguments.
+In the second case, the known arguments are collected in a string vector. This
+is particularly useful, in case the known arguments are dynamic (nominus
+arguments as filenames, etc.).</p>
+<p>Any argument on the command line, that is not contained in the specified list
+of known arguments is listed in the string vector that is returned by these
+functions.</p>
+</div>
+<div class="section" id="unidentified-options">
+<h2>Unidentified Options<a class="headerlink" href="#unidentified-options" title="Permalink to this headline">¶</a></h2>
+<p>Similarly, unidentified flying options can be detected by the functions:</p>
+<blockquote>
+<div><dl class="function">
+<dt>
+<code class="descname">unidentified_options(unsigned Number, const char* Known, ...) const;</code></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_options(const vector&lt;string&gt;&amp; Knowns) const;</code></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>These functions work the same way as the functions for unidentified flying
+arguments, but only argument that do start with at least one &#8216;-&#8216; are
+considered.</p>
+</div>
+<div class="section" id="unidentified-flags">
+<h2>Unidentified Flags<a class="headerlink" href="#unidentified-flags" title="Permalink to this headline">¶</a></h2>
+<p>Flags, i.e. letters in arguments/options that activate or deactivate certain
+switches can be checked using the function:</p>
+<blockquote>
+<div><dl class="function">
+<dt>
+<code class="descname">string unidentified_flags(const char* Known, int ArgumentNumber =-1) const;</code></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>This function operates in two modes. In first mode, if the second argument is
+omitted or set to -1, then all options starting with a single &#8216;-&#8216; are
+considered and checked if there is any letter in them that is not in Known.
+Known is simply a string concatenating all possible flags (such as &#8216;xcvfjt&#8217; for
+tar). In the second mode, the argument number ArgumentNumber on the command
+line is checked for flags (argument 1 for example in tar). The flags that are
+not contained in Known are listed in the returned string.</p>
+</div>
+<div class="section" id="unidentified-variables">
+<h2>Unidentified Variables<a class="headerlink" href="#unidentified-variables" title="Permalink to this headline">¶</a></h2>
+<p>Unidentified flying variables on the command line or in configuration files may
+be confusing the same way as arguments, options and flags. Therefore the
+functions:</p>
+<blockquote>
+<div><dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_variables(unsigned Number, const char* Known, ...) const;</code></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_variables(const vector&lt;string&gt;&amp; Knowns) const;</code></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>provide UFO detection for variables in the usual manner as the described above.</p>
+</div>
+<div class="section" id="unidentified-sections">
+<h2>Unidentified Sections<a class="headerlink" href="#unidentified-sections" title="Permalink to this headline">¶</a></h2>
+<p>Users may even define nonsense sections or mess around with the <code class="docutils literal"><span class="pre">../</span></code>- and <code class="docutils literal"><span class="pre">./</span></code>-parts in the section labels. The result is a unreadable configuration file. To detect such mischievous settings the functions:</p>
+<blockquote>
+<div><dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_sections(unsigned Number, const char* Known, ...) const;</code></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_sections(const vector&lt;string&gt;&amp; Knowns) const;</code></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>detect unidentified flying sections.</p>
+</div>
+<div class="section" id="unidentified-nominuses">
+<h2>Unidentified Nominuses<a class="headerlink" href="#unidentified-nominuses" title="Permalink to this headline">¶</a></h2>
+<p>The last category of UFOs are nominus arguments that are not recognized as filenames, variables or section names. They are detected by the functions:</p>
+<blockquote>
+<div><dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_nominuses(unsigned Number, const char* Known, ...) const;</code></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt>
+<code class="descname">vector&lt;string&gt; unidentified_nominuses(const vector&lt;string&gt;&amp; Knowns) const;</code></dt>
+<dd></dd></dl>
+
+</div></blockquote>
+<p>following the usual UFO detection procedure.</p>
+<div class="section" id="dollar-bracket-expressions">
+<h3>Dollar Bracket Expressions<a class="headerlink" href="#dollar-bracket-expressions" title="Permalink to this headline">¶</a></h3>
+<p>Since version 1.0 the GetPot parser provides a sophisticated function to handle
+several arithmetic and string operations. In some cases this can significantly
+facilitate the writing of a configuration file. The so called dollar bracket
+expressions constitute a very simple lisp-like language. Instead of using
+normal brackets, it uses dollar brackets to embrace an expression.  For
+example:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>...
+      <span class="nv">a</span> <span class="o">=</span> <span class="si">${</span><span class="p">+ 1 1</span><span class="si">}</span>
+      <span class="nv">b</span> <span class="o">=</span> <span class="si">${</span><span class="p">&lt;-&gt; Phillip Ph F</span><span class="si">}</span>
+...
+</pre></div>
+</div>
+<p>will result assign &#8220;2&#8221; to the variable a and &#8220;Fillip&#8221; to variable b. Dollar
+bracket expressions can, of course be nested and they allow conditional
+assignments. However, iteration, or even recursion is purposely not
+implemented. This is, in order to avoid possible unwanted infinite
+iterations/recursions caused by the writer of the configuration file <a class="footnote-reference" href="#id13" id="id7">[6]</a>. An
+overview over all operators is provided in table 1. Please, note that you do
+not have to use any of those to write GetPot configuration files. Simply start
+using them when you need them.</p>
+<table border="1" class="docutils" id="tab-all-dollar-bracket-operations">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><strong>String operations</strong></td>
+<td>&#160;</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${string}</span></code></td>
+<td>variable replacement</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${:string}</span></code></td>
+<td>pure string (no parsing inside)</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&amp;string1</span> <span class="pre">string2</span> <span class="pre">string3</span> <span class="pre">...}</span></code></td>
+<td>concatenation</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&lt;-&gt;</span> <span class="pre">string</span> <span class="pre">original</span> <span class="pre">replacement}</span></code></td>
+<td>string replacement</td>
+</tr>
+<tr class="row-even"><td><strong>Arithmetic operations</strong></td>
+<td>&#160;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${+</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>plus</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${*</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>multiplication</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${-</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>subtraction</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${/</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>division</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${^</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>power</td>
+</tr>
+<tr class="row-even"><td><strong>Comparisons</strong></td>
+<td>&#160;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${==</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>equal</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&gt;</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>greater</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&lt;</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>less</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&gt;=</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>greater or equal</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&lt;=</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>less or equal</td>
+</tr>
+<tr class="row-even"><td><strong>Conditions</strong></td>
+<td>&#160;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${?</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2}</span></code></td>
+<td>if-then</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${??</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>choice</td>
+</tr>
+<tr class="row-odd"><td><strong>Vector/String subscriptions</strong></td>
+<td>&#160;</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&#64;:</span> <span class="pre">string</span> <span class="pre">index0}</span></code></td>
+<td>specific letter in string</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&#64;:</span> <span class="pre">string</span> <span class="pre">index0</span> <span class="pre">index1}</span></code></td>
+<td>substring in string</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&#64;</span> <span class="pre">variable</span> <span class="pre">index0}</span></code></td>
+<td>specific element in vector variable</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&#64;</span> <span class="pre">variable</span> <span class="pre">index0</span> <span class="pre">index1}</span></code></td>
+<td>sub-vector in vector variable</td>
+</tr>
+<tr class="row-even"><td><strong>Macros</strong></td>
+<td>&#160;</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${!</span> <span class="pre">string}</span></code></td>
+<td>macro expansion</td>
+</tr>
+</tbody>
+</table>
+<p>Table 1: Total set of dollar bracket operators.</p>
+</div>
+</div>
+<div class="section" id="string-operations">
+<h2>String Operations<a class="headerlink" href="#string-operations" title="Permalink to this headline">¶</a></h2>
+<p>Table string-operations lists the dollar bracket expressions that allow string operations:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${string}</span></code></td>
+<td>variable replacement</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${:string}</span></code></td>
+<td>pure string (no parsing inside)</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&amp;</span> <span class="pre">string1</span> <span class="pre">string2</span> <span class="pre">string3</span> <span class="pre">...}</span></code></td>
+<td>concatenation</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&lt;-&gt;</span> <span class="pre">string</span> <span class="pre">original</span> <span class="pre">replacement}</span></code></td>
+<td>string replacement</td>
+</tr>
+</tbody>
+</table>
+<p>Table 2: String operations</p>
+<p>A dollar bracket expression that only contains a name is treated as variable expansion.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>...
+   <span class="nv">name</span> <span class="o">=</span> GetPot
+   <span class="o">[</span><span class="si">${</span><span class="nv">name</span><span class="si">}</span><span class="o">]</span> <span class="c1"># meaning: [GetPot]</span>
+...
+</pre></div>
+</div>
+<p>will set a section label <code class="docutils literal"><span class="pre">GetPot</span></code>.:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>...
+   <span class="o">[</span>Mechanical-Engineering<span class="o">]</span>
+      <span class="nv">boss</span>       <span class="o">=</span> Dr.<span class="se">\ </span>Frieda<span class="se">\ </span>LaBlonde
+      <span class="nv">members</span>    <span class="o">=</span> <span class="m">24</span>
+      <span class="nv">professors</span> <span class="o">=</span> <span class="m">5</span>
+   <span class="o">[]</span>
+   <span class="nv">x</span> <span class="o">=</span> Mechanical-Engineering
+
+   <span class="nv">info</span> <span class="o">=</span> <span class="s1">&#39;${${x}/boss}: ${${x}/professors}/${${x}/members}&#39;</span>
+...
+</pre></div>
+</div>
+<p>will assign the string <code class="docutils literal"><span class="pre">&quot;Dr.</span> <span class="pre">Frieda</span> <span class="pre">La</span> <span class="pre">Blonde:</span> <span class="pre">5/24&quot;</span></code> to the variable <code class="docutils literal"><span class="pre">info</span></code>. Together with sections, the dollar bracket expressions allow an elegant way to define dictionaries, such as:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>...
+   my-car <span class="o">=</span> Citroen-2CV
+   <span class="o">[</span>Nicknames<span class="o">]</span>
+        <span class="nv">BMW</span>         <span class="o">=</span> Beamer
+        <span class="nv">Mercedez</span>    <span class="o">=</span> Grandpa<span class="se">\&#39;</span>s<span class="se">\ </span>Slide
+        <span class="nv">Volkswagen</span>  <span class="o">=</span> Beetle
+        Citroen-2CV <span class="o">=</span> Deuche
+   <span class="o">[]</span>
+   my-car <span class="o">=</span> <span class="si">${</span><span class="nv">Nicknames</span><span class="p">/</span><span class="si">${</span><span class="nv">my</span><span class="p">-car</span><span class="si">}}</span>
+...
+</pre></div>
+</div>
+<p>uses the section <code class="docutils literal"><span class="pre">Nicknames</span></code> as dictionary. At the end the variable
+<code class="docutils literal"><span class="pre">my-car</span></code> will contain the name <code class="docutils literal"><span class="pre">Deuche</span></code> instead of <code class="docutils literal"><span class="pre">Citroen-2CV</span></code>.</p>
+<p>Some users might miss the ability to have dollar bracket expressions or white
+spaces inside their strings, therefore a feature is provided that enables to
+specify pure strings. Anything in between a <code class="docutils literal"><span class="pre">${...}</span></code> environment is left as
+is without any modification. In the following example:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>...
+   <span class="nv">info</span> <span class="o">=</span> <span class="si">${</span><span class="p">:</span><span class="nv">even</span><span class="p"> expressions like </span><span class="si">${</span><span class="nv">my</span><span class="p">-car</span><span class="si">}</span><span class="p"> are left as they are</span><span class="si">}</span>
+...
+</pre></div>
+</div>
+<p>whitespaces and brackets are left as they are. This feature is essential when
+defining macros <a class="reference internal" href="#sec-macro-definition"><span class="std std-ref">Macro Calls</span></a>.</p>
+<p>Strings can be concatenated by the <code class="docutils literal"><span class="pre">${&amp;</span> <span class="pre">}</span></code>-operator as in the following
+example:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="nv">info</span>  <span class="o">=</span> <span class="si">${</span><span class="p">&amp; simple concatination without whitespaces results in a mess</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>As a result of this statement, <code class="docutils literal"><span class="pre">info</span></code> would contain the string:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="s2">&quot;simpleconcatinationwithoutwhitespacesresultsinamess&quot;</span>.
+</pre></div>
+</div>
+<p>in other words: if you want to form a sentence consisting of words separated by
+whitespaces, you should either use backslashed whitespaces, quotes or &#8216;pure
+strings&#8217;. As any other normal dollar bracket expression it can contain dollar
+bracket expressions as part of its arguments such as in the following example:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="nv">name</span> <span class="o">=</span> FriedaBoelkenwater
+<span class="nv">network</span> <span class="o">=</span> neurology.west-wing.gov
+contact-info <span class="o">=</span> <span class="si">${</span><span class="p">&amp; </span><span class="si">${</span><span class="p">:</span><span class="nv">Email</span><span class="p">:</span><span class="si">}</span><span class="p"> </span><span class="si">${</span><span class="nv">name</span><span class="si">}</span><span class="p"> @ </span><span class="si">${</span><span class="nv">network</span><span class="si">}}</span>
+</pre></div>
+</div>
+<p>where the <code class="docutils literal"><span class="pre">contact-info</span></code> would be:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="s2">&quot;Email: FriedaBoelkenwater@neurology.west-wing.gov&quot;</span>
+</pre></div>
+</div>
+<p>Another important string operation are replacements using the
+<code class="docutils literal"><span class="pre">${&lt;-&gt;}</span></code>-operator such as in:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="nv">OBJECTS</span> <span class="o">=</span> main.o tires.o suspension.o drive-train.o cvi.o steering-system.o
+<span class="nv">PROGRAM_FILES</span> <span class="o">=</span> <span class="si">${</span><span class="p">&lt;-&gt; </span><span class="si">${</span><span class="nv">OBJECTS</span><span class="si">}</span><span class="p"> .o .cpp</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>where the extensions &#8216;.o&#8217; are replaced by extension &#8216;.cpp&#8217; to get the filenames
+of the source code.</p>
+</div>
+<div class="section" id="arithmetic-operations">
+<h2>Arithmetic Operations<a class="headerlink" href="#arithmetic-operations" title="Permalink to this headline">¶</a></h2>
+<p>Table 3 arithmetic-operations lists the dollar bracket expressions that allow
+arithmetic operations. The summation operator <code class="docutils literal"><span class="pre">${+}</span></code> simply adds up all
+arguments and returns a string containing the total sum. Similarly, the
+multiplication operator multiplies all arguments as returns the total product.</p>
+<p>The subtraction operator subtracts all arguments after the first argument from
+the first argument, i.e.</p>
+<blockquote>
+<div><div class="highlight-bash"><div class="highlight"><pre><span></span>x: <span class="o">=</span> <span class="si">${</span><span class="p">- 100 50 4 2</span><span class="si">}</span>
+
+<span class="nv">y</span> <span class="o">=</span> <span class="si">${</span><span class="p">/ 12 2 3</span><span class="si">}</span>
+</pre></div>
+</div>
+</div></blockquote>
+<p>assigns the value 45 to the variable <code class="docutils literal"><span class="pre">x</span></code>. Similarly, the division operator
+divides the first argument by all following arguments.  Variable <code class="docutils literal"><span class="pre">y</span></code>
+therefore carries the value 2 after parsing.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${+</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>plus</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${*</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>multiplication</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${-</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>subtraction</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${/</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>division</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${^</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">arg3</span> <span class="pre">...}</span></code></td>
+<td>power</td>
+</tr>
+</tbody>
+</table>
+<p>Table 3: Arithmetic operations.</p>
+</div>
+<div class="section" id="comparison-operators">
+<h2>Comparison Operators<a class="headerlink" href="#comparison-operators" title="Permalink to this headline">¶</a></h2>
+<p>Table 4 comparison-operations lists the dollar bracket expressions that allow
+comparisons. These operators will return the number of the first argument for
+which the operator is true with respect to argument <code class="docutils literal"><span class="pre">arg0</span></code>. If none matches
+&#8216;0&#8217; is returned. Example:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>country-id <span class="o">=</span> <span class="si">${</span><span class="p">== </span><span class="si">${</span><span class="nv">code</span><span class="si">}</span><span class="p"> .de .fr .at .it .ch .cz</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>will fill the variable country-id with 3 in case that <code class="docutils literal"><span class="pre">code</span></code> is &#8221;.at&#8221;.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${==</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>equal</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&gt;</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>greater</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&lt;</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>less</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&gt;=</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>greater or equal</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&lt;=</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>less or equal</td>
+</tr>
+</tbody>
+</table>
+<p>Table 4: Comparisons.</p>
+</div>
+<div class="section" id="conditional-expansion">
+<h2>Conditional Expansion<a class="headerlink" href="#conditional-expansion" title="Permalink to this headline">¶</a></h2>
+<p>The operator in table 5 allow conditional expansion.  The <code class="docutils literal"><span class="pre">${?</span> <span class="pre">}</span></code>-operator
+constitutes a if-then statement. If <code class="docutils literal"><span class="pre">arg0</span></code>, usually the result of a
+comparison operation, is equal to 1 than <code class="docutils literal"><span class="pre">arg1</span></code> is returned - otherwise
+<code class="docutils literal"><span class="pre">arg2</span></code>. The <code class="docutils literal"><span class="pre">${??</span> <span class="pre">}</span></code>-operator allows to choose from a list of arguments. If
+<code class="docutils literal"><span class="pre">arg0</span></code> is &#8216;1&#8217; than <code class="docutils literal"><span class="pre">arg1</span></code> is returned, if it is &#8216;2&#8217; than <code class="docutils literal"><span class="pre">arg2</span></code> is
+returned, etc.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${?</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2}</span></code></td>
+<td>if-then</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${??</span> <span class="pre">arg0</span> <span class="pre">arg1</span> <span class="pre">arg2</span> <span class="pre">...}</span></code></td>
+<td>choice</td>
+</tr>
+</tbody>
+</table>
+<p>Table 5: Conditional expansion.</p>
+</div>
+<div class="section" id="vector-and-string-subscription">
+<h2>Vector and String Subscription<a class="headerlink" href="#vector-and-string-subscription" title="Permalink to this headline">¶</a></h2>
+<p>The operator in table 6 allow vector and string subscriptions. A <code class="docutils literal"><span class="pre">${&#64;:</span>
+<span class="pre">}</span></code>-operator performs string subscription, a <code class="docutils literal"><span class="pre">${&#64;</span> <span class="pre">}</span></code>-operator performs vector
+subscription. If only one index is specified, than only one specific element is
+returned. If two indices are given, the substring/sub-vector from the first to
+the last index is returned. If the second index is &#8216;-1&#8217; it is considered to be
+equal to the size of the vector/string.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="52%" />
+<col width="48%" />
+</colgroup>
+<tbody valign="top">
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&#64;:</span> <span class="pre">string</span> <span class="pre">index0}</span></code></td>
+<td>specific letter in string</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&#64;:</span> <span class="pre">string</span> <span class="pre">index0</span> <span class="pre">index1}</span></code></td>
+<td>substring in string</td>
+</tr>
+<tr class="row-odd"><td><code class="docutils literal"><span class="pre">${&#64;</span> <span class="pre">variable</span> <span class="pre">index0}</span></code></td>
+<td>specific element in vector variable</td>
+</tr>
+<tr class="row-even"><td><code class="docutils literal"><span class="pre">${&#64;</span> <span class="pre">variable</span> <span class="pre">index0</span> <span class="pre">index1}</span></code></td>
+<td>sub-vector in vector variable</td>
+</tr>
+</tbody>
+</table>
+<p>Table 6: Vector and string subscription.</p>
+</div>
+<div class="section" id="macro-calls">
+<span id="sec-macro-definition"></span><h2>Macro Calls<a class="headerlink" href="#macro-calls" title="Permalink to this headline">¶</a></h2>
+<p>Any string stored in a variable can serve as a macro, so there is no need to
+have a macro-definition operator. The pure strings using the <code class="docutils literal"><span class="pre">${:</span> <span class="pre">}</span></code>-operator
+come handy, though, since they allow to define dollar bracket expressions that
+are not directly parsed. Strings are parsed with the <code class="docutils literal"><span class="pre">${!</span> <span class="pre">}</span></code>-operator.
+Defining:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="nv">x2</span>  <span class="o">=</span> <span class="si">${</span><span class="p">: </span><span class="si">${</span><span class="p">* </span><span class="si">${</span><span class="nv">x</span><span class="si">}</span><span class="p"> </span><span class="si">${</span><span class="nv">x</span><span class="si">}}}</span>
+<span class="nv">x4</span>  <span class="o">=</span> <span class="si">${</span><span class="p">: </span><span class="si">${</span><span class="p">* </span><span class="si">${</span><span class="p">!x2</span><span class="si">}</span><span class="p"> </span><span class="si">${</span><span class="p">!x2</span><span class="si">}}}</span>
+<span class="nv">x6</span>  <span class="o">=</span> <span class="si">${</span><span class="p">: </span><span class="si">${</span><span class="p">* </span><span class="si">${</span><span class="p">!x4</span><span class="si">}</span><span class="p"> </span><span class="si">${</span><span class="p">!x2</span><span class="si">}}}</span>
+<span class="nv">sin</span> <span class="o">=</span> <span class="si">${</span><span class="p">: </span><span class="si">${</span><span class="p">* </span><span class="si">${</span><span class="nv">x</span><span class="si">}</span><span class="p"></span>
+<span class="p">               </span><span class="si">${</span><span class="p">+ 1</span>
+<span class="p">                   </span><span class="si">${</span><span class="p">/ </span><span class="si">${</span><span class="p">!x2</span><span class="si">}</span><span class="p"> -6</span><span class="si">}</span><span class="p"></span>
+<span class="p">                   </span><span class="si">${</span><span class="p">/ </span><span class="si">${</span><span class="p">!x4</span><span class="si">}</span><span class="p"> 120</span><span class="si">}</span><span class="p"></span>
+<span class="p">                   </span><span class="si">${</span><span class="p">/ </span><span class="si">${</span><span class="p">!x6</span><span class="si">}</span><span class="p"> -5040</span><span class="si">}</span><span class="p"></span>
+<span class="p">               </span><span class="si">}</span><span class="p"></span>
+<span class="p">           </span><span class="si">}</span><span class="p"></span>
+<span class="p">       </span><span class="si">}</span>
+</pre></div>
+</div>
+<p>makes it possible to compute sinuses inside a GetPot file, for example:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span><span class="nv">x</span> <span class="o">=</span> <span class="m">0</span>.212
+<span class="nv">info</span> <span class="o">=</span> <span class="si">${</span><span class="p">!sin</span><span class="si">}</span>
+</pre></div>
+</div>
+<p>will assign something that is close to the sinus of 0.212 to the variable info.
+Keep in mind, that through the huge amount of float-string conversions, back
+and forth, a lot of precision is lost. Don&#8217;t consider this as a disadvantage !
+As said before, configuration files are not there to write programs. A
+configuration file language, therefore, has to be a bit cumbersome, in order to
+prevent mayhem.</p>
+<table class="docutils footnote" frame="void" id="id8" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id2">[1]</a></td><td>This means basically, it is for free but it can still be used in
+commercial products. You should have received a copy of the MIT License along with
+this library.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id9" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id3">[2]</a></td><td>If you have no root access on your machine, copy it somewhere in your directory tree and specify <code class="docutils literal"><span class="pre">-I/home/genius/my_include/</span></code> when using g++ - supposed that you copied GetPot into <code class="docutils literal"><span class="pre">/home/genius/my_include/</span></code>.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id10" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id4">[3]</a></td><td>Originally, C++ does not allow a function overloading with respect to the return type. The default argument must have the same type as the variable it will be assigned to. Therefore, functions are overloaded with respect to the default argument, which at the same time defines the return type.</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id11" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id5">[4]</a></td><td>A popular program accepting single letter options is &#8216;tar&#8217;. With strings like &#8216;xzvf&#8217; this program allows to state very concisely a desired behavior (extract &#8216;x&#8217;, unzip &#8216;z&#8217;, verbose &#8216;v&#8217; the following file &#8216;f&#8217;).</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id12" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id6">[5]</a></td><td>That means to &#8220;&#8221; for example, in case you want to refer to the root section</td></tr>
+</tbody>
+</table>
+<table class="docutils footnote" frame="void" id="id13" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id7">[6]</a></td><td>The idea behind is that the responsibility for the functioning of an application shall lie on the programmer. He has to make sure that the program, either produces error/warning messages or functions properly. An infinite recursion in the configuration file could not be caught be the application. An undocumented malfunctioning however is not acceptable, since the user has no means to adapt his inputs. The author is well aware that there are major software companies that do not share this philosophy.</td></tr>
+</tbody>
+</table>
+<table class="docutils citation" frame="void" id="looijaard97getopt" rules="none">
+<colgroup><col class="label" /><col /></colgroup>
+<tbody valign="top">
+<tr><td class="label"><a class="fn-backref" href="#id1">[looijaard97getopt]</a></td><td>Looijaard, F. (1997).
+getopt - parse command options (enhanced).
+Man page.
+Available on most Unix systems.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="#">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">GetPot Version 2.0</a><ul>
+<li><a class="reference internal" href="#input-file-and-command-line-parser">Input File and Command Line Parser</a><ul>
+<li><a class="reference internal" href="#abstract">Abstract</a></li>
+<li><a class="reference internal" href="#introduction">Introduction</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#other-constructors">Other Constructors</a><ul>
+<li><a class="reference internal" href="#options">Options</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#arguments-that-follow-arguments">Arguments that follow arguments</a></li>
+<li><a class="reference internal" href="#nominus-followers">Nominus Followers</a></li>
+<li><a class="reference internal" href="#directly-followed-options">Directly followed options</a></li>
+<li><a class="reference internal" href="#tails">Tails</a><ul>
+<li><a class="reference internal" href="#variables">Variables</a></li>
+<li><a class="reference internal" href="#constraints">Constraints</a></li>
+<li><a class="reference internal" href="#flags">Flags</a></li>
+<li><a class="reference internal" href="#nominus-arguments">Nominus Arguments</a></li>
+<li><a class="reference internal" href="#direct-access-to-command-line-arguments">Direct access to command line arguments</a></li>
+<li><a class="reference internal" href="#input-files">Input files</a></li>
+<li><a class="reference internal" href="#prefixes">Prefixes</a></li>
+<li><a class="reference internal" href="#ufos-unidentified-flying-objects">UFOs - Unidentified Flying Objects</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#unidentified-arguments">Unidentified Arguments</a></li>
+<li><a class="reference internal" href="#unidentified-options">Unidentified Options</a></li>
+<li><a class="reference internal" href="#unidentified-flags">Unidentified Flags</a></li>
+<li><a class="reference internal" href="#unidentified-variables">Unidentified Variables</a></li>
+<li><a class="reference internal" href="#unidentified-sections">Unidentified Sections</a></li>
+<li><a class="reference internal" href="#unidentified-nominuses">Unidentified Nominuses</a><ul>
+<li><a class="reference internal" href="#dollar-bracket-expressions">Dollar Bracket Expressions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#string-operations">String Operations</a></li>
+<li><a class="reference internal" href="#arithmetic-operations">Arithmetic Operations</a></li>
+<li><a class="reference internal" href="#comparison-operators">Comparison Operators</a></li>
+<li><a class="reference internal" href="#conditional-expansion">Conditional Expansion</a></li>
+<li><a class="reference internal" href="#vector-and-string-subscription">Vector and String Subscription</a></li>
+<li><a class="reference internal" href="#macro-calls">Macro Calls</a></li>
+</ul>
+</li>
+</ul>
+
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="#">GetPot 2.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2001-2017, Frank R. Schaefer.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.5.
+    </div>
+  </body>
+</html>
